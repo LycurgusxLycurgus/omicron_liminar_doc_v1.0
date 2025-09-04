@@ -80,7 +80,6 @@
             bottom: 20px;
             right: 20px;
             padding: 10px 15px;
-            border-radius: 25px; /* Para hacerlo más redondeado */
             z-index: 999;
             cursor: pointer;
             opacity: 0.5; /* Estado inactivo */
@@ -103,7 +102,51 @@
             }
         }
 
-        .modal-overlay, .wizard-overlay {
+        /* Cajón de chat */
+        .drawer {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: -100%;
+            background-color: var(--overlay-bg-color);
+            display: flex;
+            align-items: flex-end;
+            z-index: 1000;
+            transition: bottom var(--dur, 240ms) var(--ease, ease);
+        }
+
+        .drawer[aria-hidden="false"] {
+            top: 0;
+            bottom: 0;
+        }
+
+        .drawer-body {
+            background-color: var(--background-color);
+            border: 1px solid var(--border-color);
+            padding: 1rem;
+            width: 100%;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .drawer-close-button {
+            position: absolute;
+            top: 5px;
+            right: 10px;
+            background: none;
+            border: none;
+            font-family: sans-serif;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 5px;
+            line-height: 1;
+            color: var(--text-color);
+        }
+
+        /* Estilos del wizard */
+        .wizard-overlay {
             position: fixed;
             top: 0;
             left: 0;
@@ -116,39 +159,14 @@
             z-index: 1000;
         }
 
-        .modal-content, .wizard-content {
+        .wizard-content {
             background-color: var(--background-color);
             border: 1px solid var(--border-color);
             padding: 1rem;
             width: 90%;
-            position: relative;
-        }
-
-        .modal-content {
-            max-width: 600px;
-            height: 80%;
-            max-height: 700px;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .wizard-content {
             max-width: 500px;
             text-align: center;
-        }
-
-        .modal-close-button {
-            position: absolute;
-            top: 5px;
-            right: 10px;
-            background: none;
-            border: none;
-            font-family: sans-serif;
-            font-size: 24px;
-            cursor: pointer;
-            padding: 5px;
-            line-height: 1;
-            color: var(--text-color);
+            position: relative;
         }
 
         #selected-text-container {
@@ -168,12 +186,16 @@
             margin-bottom: 1rem;
         }
 
-        #chat-history p { margin: 0.5em 0; font-size: 1em; }
+        #chat-history div { margin: 0.5em 0; font-size: 1em; }
         #chat-history .user-message { font-weight: bold; }
-        #chat-history .model-message { white-space: pre-wrap; }
 
         #chat-form { display: flex; }
-        #chat-input { flex-grow: 1; margin-right: 0.5rem; }
+        #chat-input {
+            flex-grow: 1;
+            margin-right: 0.5rem;
+            resize: none;
+            height: 3rem;
+        }
     </style>
 </head>
 <body>
@@ -186,21 +208,21 @@
 
     <!-- Elementos de la Interfaz Interactiva -->
     <button id="highlighter-button">Conversar</button>
-    <button id="mobile-chat-trigger">💬 Conversar</button> <!-- NUEVO BOTÓN -->
+    <button id="mobile-chat-trigger">Conversar</button>
 
-    <!-- MODAL DEL CHAT -->
-    <div class="modal-overlay" id="ai-modal">
-        <div class="modal-content">
-            <button class="modal-close-button" id="modal-close">X</button>
+    <!-- CAJÓN DE CHAT -->
+    <aside id="chat-drawer" class="drawer" aria-hidden="true" inert>
+        <div class="drawer-body">
+            <button class="drawer-close-button" id="drawer-close">×</button>
             <h4>Conversando sobre:</h4>
             <div id="selected-text-container"></div>
             <div id="chat-history"></div>
             <form id="chat-form">
-                <input type="text" id="chat-input" placeholder="Haz una pregunta..." required>
+                <textarea id="chat-input" placeholder="Haz una pregunta..." required></textarea>
                 <button type="submit">Enviar</button>
             </form>
         </div>
-    </div>
+    </aside>
 
     <!-- WIZARD / TUTORIAL DE BIENVENIDA -->
     <div class="wizard-overlay" id="wizard">
@@ -212,6 +234,7 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script type="module" src="main.js"></script>
 
 </body>

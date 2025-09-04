@@ -17,10 +17,10 @@ if (API_KEY && API_KEY !== "AQUI_VA_TU_NUEVA_API_KEY") {
 // --- REFERENCIAS A ELEMENTOS DEL DOM ---
 const contentContainer = document.getElementById('content-container');
 const highlighterButton = document.getElementById('highlighter-button');
-const mobileChatTrigger = document.getElementById('mobile-chat-trigger'); // NUEVO
-// Modal de Chat
-const modal = document.getElementById('ai-modal');
-const modalCloseButton = document.getElementById('modal-close');
+const mobileChatTrigger = document.getElementById('mobile-chat-trigger');
+// Cajón de Chat
+const drawer = document.getElementById('chat-drawer');
+const drawerCloseButton = document.getElementById('drawer-close');
 const selectedTextContainer = document.getElementById('selected-text-container');
 const chatHistoryContainer = document.getElementById('chat-history');
 const chatForm = document.getElementById('chat-form');
@@ -126,7 +126,7 @@ function createElement(item) {
 // MODIFICADO: Se añade 'touchend' para mejor respuesta en móviles
 ['mouseup', 'touchend'].forEach(evt => {
     document.addEventListener(evt, (event) => {
-        if (modal.contains(event.target) || wizard.contains(event.target)) return;
+        if (drawer.contains(event.target) || wizard.contains(event.target)) return;
         
         const selection = window.getSelection();
         const selectedText = selection.toString().trim();
@@ -149,33 +149,36 @@ function createElement(item) {
 });
 
 // Refactorizado para evitar duplicar código
-function openChatModal() {
+function openChatDrawer() {
     if (!genAI) {
         alert("La funcionalidad de IA no está disponible. Por favor, configura una clave de API en el archivo main.js.");
         return;
     }
     selectedTextContainer.textContent = `"${currentSelectedText}"`;
     chatHistoryContainer.innerHTML = '';
-    modal.style.display = 'flex';
+    drawer.setAttribute('aria-hidden', 'false');
+    drawer.removeAttribute('inert');
     highlighterButton.style.display = 'none';
     mobileChatTrigger.classList.remove('active'); // Desactivar al abrir
     startChatSession();
+    drawerCloseButton.focus();
 }
 
-highlighterButton.addEventListener('click', openChatModal);
+highlighterButton.addEventListener('click', openChatDrawer);
 mobileChatTrigger.addEventListener('click', () => {
     if (mobileChatTrigger.classList.contains('active')) {
-        openChatModal();
+        openChatDrawer();
     }
 });
 
-function closeModal() {
-    modal.style.display = 'none';
+function closeDrawer() {
+    drawer.setAttribute('aria-hidden', 'true');
+    drawer.setAttribute('inert', '');
     chat = null;
 }
-modalCloseButton.addEventListener('click', closeModal);
-modal.addEventListener('click', (event) => {
-    if (event.target === modal) closeModal();
+drawerCloseButton.addEventListener('click', closeDrawer);
+drawer.addEventListener('click', (event) => {
+    if (event.target === drawer) closeDrawer();
 });
 
 chatForm.addEventListener('submit', async (event) => {
@@ -195,7 +198,11 @@ chatForm.addEventListener('submit', async (event) => {
         for await (const chunk of stream.stream) {
             const chunkText = chunk.text();
             modelResponse += chunkText;
-            modelMessageElement.textContent = modelResponse;
+            if (window.marked) {
+                modelMessageElement.innerHTML = marked.parse(modelResponse);
+            } else {
+                modelMessageElement.textContent = modelResponse;
+            }
             chatHistoryContainer.scrollTop = chatHistoryContainer.scrollHeight;
         }
     } catch (error) {
@@ -208,13 +215,16 @@ chatForm.addEventListener('submit', async (event) => {
 });
 
 function addMessageToHistory(text, role) {
-    // ... (Esta función no cambia)
-    const p = document.createElement('p');
-    p.textContent = text;
-    p.className = role === 'user' ? 'user-message' : 'model-message';
-    chatHistoryContainer.appendChild(p);
+    const el = document.createElement('div');
+    el.className = role === 'user' ? 'user-message' : 'model-message';
+    if (role === 'model' && window.marked) {
+        el.innerHTML = marked.parse(text);
+    } else {
+        el.textContent = text;
+    }
+    chatHistoryContainer.appendChild(el);
     chatHistoryContainer.scrollTop = chatHistoryContainer.scrollHeight;
-    return p;
+    return el;
 }
 
 function startChatSession() {
