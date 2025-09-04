@@ -32,6 +32,7 @@ const wizardCloseButton = document.getElementById('wizard-close');
 
 let currentSelectedText = '';
 let chat;
+let systemPrompt = '';
 
 // --- LÓGICA PRINCIPAL DE LA APLICACIÓN ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -50,8 +51,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     wizardCloseButton.addEventListener('click', () => {
         wizard.style.display = 'none';
+
         localStorage.setItem('hasSeenWizard', 'true');
     });
+
+    // Carga de las instrucciones del sistema
+    fetch('system_prompt.json')
+        .then(res => res.json())
+        .then(data => { systemPrompt = data.systemInstruction || ''; })
+        .catch(err => console.warn('No se pudo cargar system_prompt.json:', err));
 
     // Carga del contenido
     fetch('content.json')
@@ -228,8 +236,8 @@ function addMessageToHistory(text, role) {
 }
 
 function startChatSession() {
-    // ... (Esta función no cambia)
-    const systemInstruction = `Eres un asistente experto en la filosofía de Arqueidentidad: Omicron. Tu propósito es ayudar al usuario a explorar y entender profundamente el texto que ha seleccionado. Sé claro, profundo y mantén el tono del documento. No des respuestas genéricas. El usuario ha seleccionado el siguiente fragmento: "${currentSelectedText}". Inicia la conversación preguntándole qué le gustaría explorar sobre este fragmento.`;
+    const instructionTemplate = systemPrompt || `Eres un asistente experto en Arqueidentidad: Omicron. El usuario ha seleccionado el siguiente fragmento: "{{fragment}}". Inicia la conversación preguntando qué desea explorar.`;
+    const systemInstruction = instructionTemplate.replace('{{fragment}}', currentSelectedText);
     const firstMessage = `Has seleccionado el fragmento: "${currentSelectedText}". ¿Qué te gustaría explorar o preguntar sobre esta idea?`;
 
     chat = model.startChat({
