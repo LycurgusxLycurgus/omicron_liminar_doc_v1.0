@@ -18,10 +18,10 @@ if (API_KEY && API_KEY !== "AQUI_VA_TU_NUEVA_API_KEY") {
 const contentContainer = document.getElementById('content-container');
 const highlighterButton = document.getElementById('highlighter-button');
 const mobileChatTrigger = document.getElementById('mobile-chat-trigger');
+const mobileSelectionHint = document.getElementById('mobile-selection-hint');
 // Cajón de Chat
 const drawer = document.getElementById('chat-drawer');
 const drawerCloseButton = document.getElementById('drawer-close');
-const selectedTextContainer = document.getElementById('selected-text-container');
 const chatHistoryContainer = document.getElementById('chat-history');
 const chatForm = document.getElementById('chat-form');
 const chatInput = document.getElementById('chat-input');
@@ -29,10 +29,20 @@ const chatInput = document.getElementById('chat-input');
 const themeToggle = document.getElementById('theme-toggle');
 const wizard = document.getElementById('wizard');
 const wizardCloseButton = document.getElementById('wizard-close');
+const wizardTitle = document.getElementById('wizard-title');
+const wizardSubtitle = document.getElementById('wizard-subtitle');
+const wizardInstructions = document.getElementById('wizard-instructions');
+const wizardDontShow = document.getElementById('wizard-dont-show');
 
 let currentSelectedText = '';
 let chat;
 let systemPrompt = '';
+
+const MOBILE_MIN_SELECTION_LENGTH = 6;
+const MOBILE_SELECTION_PROMPT = 'Selecciona el fragmento que quieres conversar y toca Conversar para confirmar.';
+const MOBILE_SELECTION_READY = 'Toca Conversar para confirmar la selección.';
+let isMobileSelectionModeActive = false;
+let mobileHintTimeout = null;
 
 // --- LÓGICA PRINCIPAL DE LA APLICACIÓN ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -46,13 +56,26 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Lógica del Wizard
-    if (!localStorage.getItem('hasSeenWizard')) {
-        wizard.style.display = 'flex';
+    const shouldHideWizard = localStorage.getItem('hideWizard') === 'true';
+    if (!shouldHideWizard) {
+        openWizard();
     }
-    wizardCloseButton.addEventListener('click', () => {
-        wizard.style.display = 'none';
-
-        localStorage.setItem('hasSeenWizard', 'true');
+    if (wizardCloseButton) {
+        wizardCloseButton.addEventListener('click', () => {
+            closeWizard();
+        });
+    }
+    if (wizard) {
+        wizard.addEventListener('click', (event) => {
+            if (event.target === wizard) {
+                closeWizard();
+            }
+        });
+    }
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && wizard && wizard.style.display === 'flex') {
+            closeWizard();
+        }
     });
 
     // Carga de las instrucciones del sistema
@@ -131,51 +154,210 @@ function createElement(item) {
     return el;
 }
 
+function isMobileViewport() {
+    return window.matchMedia('(max-width: 768px)').matches;
+}
+
+function openWizard() {
+    if (!wizard) return;
+    updateWizardContent();
+    if (wizardDontShow) {
+        wizardDontShow.checked = false;
+    }
+    wizard.style.display = 'flex';
+    wizard.setAttribute('aria-hidden', 'false');
+    if (wizardCloseButton) {
+        wizardCloseButton.focus();
+    }
+}
+
+function closeWizard() {
+    if (!wizard) return;
+    wizard.style.display = 'none';
+    wizard.setAttribute('aria-hidden', 'true');
+    if (wizardDontShow && wizardDontShow.checked) {
+        localStorage.setItem('hideWizard', 'true');
+    }
+}
+
+function updateWizardContent() {
+    if (!wizardTitle || !wizardSubtitle || !wizardInstructions) return;
+    const mobile = isMobileViewport();
+    const title = mobile ? 'Conversar desde tu dispositivo móvil' : 'Conversar desde tu ordenador';
+    const subtitle = mobile
+        ? 'Sigue estos pasos rápidos para seleccionar un fragmento y abrir el chat.'
+        : 'Descubre cómo iniciar una conversación contextual en tres pasos.';
+    const steps = mobile
+        ? [
+            'Pulsa el botón «Conversar» en la esquina superior izquierda para activar el modo de selección.',
+            'Selecciona un fragmento de al menos unas pocas palabras del documento.',
+            'Pulsa de nuevo «Conversar» para confirmar y abrir el chat contextual.',
+            'Escribe tus preguntas en la parte inferior del cajón y envíalas.'
+        ]
+        : [
+            'Selecciona un fragmento relevante del documento (unas pocas palabras o más).',
+            'Cuando aparezca el botón flotante «Conversar», haz clic en él para abrir el chat.',
+            'Formula tus preguntas en el campo de texto del cajón y envíalas.'
+        ];
+
+    wizardTitle.textContent = title;
+    wizardSubtitle.textContent = subtitle;
+    wizardInstructions.innerHTML = '';
+    steps.forEach((step) => {
+        const li = document.createElement('li');
+        li.textContent = step;
+        wizardInstructions.appendChild(li);
+    });
+}
+
+function showMobileSelectionHint(message, persistent = false) {
+    if (!mobileSelectionHint) return;
+    mobileSelectionHint.textContent = message;
+    mobileSelectionHint.classList.add('visible');
+    if (mobileHintTimeout) {
+        clearTimeout(mobileHintTimeout);
+        mobileHintTimeout = null;
+    }
+    if (!persistent) {
+        mobileHintTimeout = setTimeout(() => {
+            mobileSelectionHint.classList.remove('visible');
+            mobileHintTimeout = null;
+        }, 3500);
+    }
+}
+
+function hideMobileSelectionHint() {
+    if (!mobileSelectionHint) return;
+    mobileSelectionHint.classList.remove('visible');
+    if (mobileHintTimeout) {
+        clearTimeout(mobileHintTimeout);
+        mobileHintTimeout = null;
+    }
+}
+
+function enterMobileSelectionMode() {
+    if (!mobileChatTrigger) return;
+    isMobileSelectionModeActive = true;
+    currentSelectedText = '';
+    mobileChatTrigger.classList.add('selection-mode');
+    mobileChatTrigger.classList.remove('ready');
+    mobileChatTrigger.setAttribute('aria-expanded', 'true');
+    const selection = window.getSelection();
+    if (selection && typeof selection.removeAllRanges === 'function') {
+        selection.removeAllRanges();
+    }
+    showMobileSelectionHint(MOBILE_SELECTION_PROMPT, true);
+}
+
+function exitMobileSelectionMode({ clearSelection = true, keepText = false } = {}) {
+    if (!mobileChatTrigger) return;
+    isMobileSelectionModeActive = false;
+    mobileChatTrigger.classList.remove('selection-mode', 'ready');
+    mobileChatTrigger.setAttribute('aria-expanded', 'false');
+    hideMobileSelectionHint();
+    if (!keepText) {
+        currentSelectedText = '';
+    }
+    if (clearSelection) {
+        const selection = window.getSelection();
+        if (selection && typeof selection.removeAllRanges === 'function') {
+            selection.removeAllRanges();
+        }
+    }
+}
+
+function handleMobileSelectionUpdate(selectedText) {
+    if (!mobileChatTrigger || !isMobileSelectionModeActive) return;
+    if (selectedText.length >= MOBILE_MIN_SELECTION_LENGTH) {
+        currentSelectedText = selectedText;
+        mobileChatTrigger.classList.add('ready');
+        showMobileSelectionHint(MOBILE_SELECTION_READY, true);
+    } else {
+        mobileChatTrigger.classList.remove('ready');
+        if (selectedText.length === 0) {
+            showMobileSelectionHint(MOBILE_SELECTION_PROMPT, true);
+        }
+    }
+}
+
 // MODIFICADO: Se añade 'touchend' para mejor respuesta en móviles
 ['mouseup', 'touchend'].forEach(evt => {
     document.addEventListener(evt, (event) => {
-        if (drawer.contains(event.target) || wizard.contains(event.target)) return;
-        
-        const selection = window.getSelection();
-        const selectedText = selection.toString().trim();
+        if ((drawer && drawer.contains(event.target)) || (wizard && wizard.contains(event.target))) return;
 
-        if (selectedText.length > 5) {
-            currentSelectedText = selectedText;
-            // Lógica para el botón de escritorio
-            const range = selection.getRangeAt(0);
-            const rect = range.getBoundingClientRect();
-            highlighterButton.style.display = 'block';
-            highlighterButton.style.left = `${rect.left + window.scrollX + (rect.width / 2) - (highlighterButton.offsetWidth / 2)}px`;
-            highlighterButton.style.top = `${rect.top + window.scrollY - highlighterButton.offsetHeight - 5}px`;
-            // Lógica para el botón móvil
-            mobileChatTrigger.classList.add('active');
+        const selection = window.getSelection();
+        const selectedText = selection ? selection.toString().trim() : '';
+
+        if (isMobileViewport()) {
+            if (!isMobileSelectionModeActive) return;
+            handleMobileSelectionUpdate(selectedText);
+            return;
+        }
+
+        if (selectedText.length >= MOBILE_MIN_SELECTION_LENGTH) {
+            if (selection && selection.rangeCount > 0) {
+                currentSelectedText = selectedText;
+                const range = selection.getRangeAt(0);
+                const rect = range.getBoundingClientRect();
+                highlighterButton.style.display = 'block';
+                highlighterButton.style.left = `${rect.left + window.scrollX + (rect.width / 2) - (highlighterButton.offsetWidth / 2)}px`;
+                highlighterButton.style.top = `${rect.top + window.scrollY - highlighterButton.offsetHeight - 5}px`;
+            }
         } else {
             highlighterButton.style.display = 'none';
-            mobileChatTrigger.classList.remove('active');
+            currentSelectedText = '';
         }
     });
 });
 
+document.addEventListener('selectionchange', () => {
+    if (!isMobileViewport() || !isMobileSelectionModeActive) return;
+    const selection = window.getSelection();
+    const selectedText = selection ? selection.toString().trim() : '';
+    handleMobileSelectionUpdate(selectedText);
+});
+
+window.addEventListener('resize', () => {
+    if (!isMobileViewport() && isMobileSelectionModeActive) {
+        exitMobileSelectionMode({ clearSelection: false });
+    }
+    if (wizard && wizard.style.display === 'flex') {
+        updateWizardContent();
+    }
+});
+
 // Refactorizado para evitar duplicar código
 function openChatDrawer() {
+    if (!currentSelectedText) {
+        alert('Selecciona un fragmento de texto antes de conversar.');
+        return;
+    }
+    exitMobileSelectionMode({ clearSelection: true, keepText: true });
     if (!genAI) {
         alert("La funcionalidad de IA no está disponible. Por favor, configura una clave de API en el archivo main.js.");
         return;
     }
-    selectedTextContainer.textContent = `"${currentSelectedText}"`;
     chatHistoryContainer.innerHTML = '';
     drawer.setAttribute('aria-hidden', 'false');
     drawer.removeAttribute('inert');
     highlighterButton.style.display = 'none';
-    mobileChatTrigger.classList.remove('active'); // Desactivar al abrir
     startChatSession();
-    drawerCloseButton.focus();
+    if (drawerCloseButton) {
+        drawerCloseButton.focus();
+    }
 }
 
 highlighterButton.addEventListener('click', openChatDrawer);
 mobileChatTrigger.addEventListener('click', () => {
-    if (mobileChatTrigger.classList.contains('active')) {
+    if (!isMobileViewport()) return;
+    if (!isMobileSelectionModeActive) {
+        enterMobileSelectionMode();
+        return;
+    }
+    if (currentSelectedText && currentSelectedText.length >= MOBILE_MIN_SELECTION_LENGTH) {
         openChatDrawer();
+    } else {
+        showMobileSelectionHint('Selecciona un fragmento más extenso antes de confirmar.', true);
     }
 });
 
@@ -183,6 +365,8 @@ function closeDrawer() {
     drawer.setAttribute('aria-hidden', 'true');
     drawer.setAttribute('inert', '');
     chat = null;
+    highlighterButton.style.display = 'none';
+    exitMobileSelectionMode({ clearSelection: true });
 }
 drawerCloseButton.addEventListener('click', closeDrawer);
 drawer.addEventListener('click', (event) => {
@@ -238,7 +422,7 @@ function addMessageToHistory(text, role) {
 function startChatSession() {
     const instructionTemplate = systemPrompt || `Eres un asistente experto en Arqueidentidad: Omicron. El usuario ha seleccionado el siguiente fragmento: "{{fragment}}". Inicia la conversación preguntando qué desea explorar.`;
     const systemInstruction = instructionTemplate.replace('{{fragment}}', currentSelectedText);
-    const firstMessage = `Has seleccionado el fragmento: "${currentSelectedText}". ¿Qué te gustaría explorar o preguntar sobre esta idea?`;
+    const firstMessage = `Trabajaremos con este fragmento: "${currentSelectedText}". ¿Qué te gustaría explorar o preguntar sobre esta idea?`;
 
     chat = model.startChat({
         history: [
