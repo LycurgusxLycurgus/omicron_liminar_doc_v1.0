@@ -18,6 +18,7 @@ if (API_KEY && API_KEY !== "AQUI_VA_TU_NUEVA_API_KEY") {
 const contentContainer = document.getElementById('content-container');
 const highlighterButton = document.getElementById('highlighter-button');
 const mobileChatTrigger = document.getElementById('mobile-chat-trigger');
+const mobileSelectionHint = document.getElementById('mobile-selection-hint');
 // Cajón de Chat
 const drawer = document.getElementById('chat-drawer');
 const drawerCloseButton = document.getElementById('drawer-close');
@@ -33,6 +34,12 @@ const wizardCloseButton = document.getElementById('wizard-close');
 let currentSelectedText = '';
 let chat;
 let systemPrompt = '';
+
+const MOBILE_MIN_SELECTION_LENGTH = 6;
+const MOBILE_SELECTION_PROMPT = 'Selecciona el fragmento que quieres conversar y toca Conversar para confirmar.';
+const MOBILE_SELECTION_READY = 'Toca Conversar para confirmar la selección.';
+let isMobileSelectionModeActive = false;
+let mobileHintTimeout = null;
 
 // --- LÓGICA PRINCIPAL DE LA APLICACIÓN ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -131,33 +138,130 @@ function createElement(item) {
     return el;
 }
 
+function isMobileViewport() {
+    return window.matchMedia('(max-width: 768px)').matches;
+}
+
+function showMobileSelectionHint(message, persistent = false) {
+    if (!mobileSelectionHint) return;
+    mobileSelectionHint.textContent = message;
+    mobileSelectionHint.classList.add('visible');
+    if (mobileHintTimeout) {
+        clearTimeout(mobileHintTimeout);
+        mobileHintTimeout = null;
+    }
+    if (!persistent) {
+        mobileHintTimeout = setTimeout(() => {
+            mobileSelectionHint.classList.remove('visible');
+            mobileHintTimeout = null;
+        }, 3500);
+    }
+}
+
+function hideMobileSelectionHint() {
+    if (!mobileSelectionHint) return;
+    mobileSelectionHint.classList.remove('visible');
+    if (mobileHintTimeout) {
+        clearTimeout(mobileHintTimeout);
+        mobileHintTimeout = null;
+    }
+}
+
+function enterMobileSelectionMode() {
+    if (!mobileChatTrigger) return;
+    isMobileSelectionModeActive = true;
+    currentSelectedText = '';
+    mobileChatTrigger.classList.add('selection-mode');
+    mobileChatTrigger.classList.remove('ready');
+    mobileChatTrigger.setAttribute('aria-expanded', 'true');
+    const selection = window.getSelection();
+    if (selection && typeof selection.removeAllRanges === 'function') {
+        selection.removeAllRanges();
+    }
+    showMobileSelectionHint(MOBILE_SELECTION_PROMPT, true);
+}
+
+function exitMobileSelectionMode({ clearSelection = true, keepText = false } = {}) {
+    if (!mobileChatTrigger) return;
+    isMobileSelectionModeActive = false;
+    mobileChatTrigger.classList.remove('selection-mode', 'ready');
+    mobileChatTrigger.setAttribute('aria-expanded', 'false');
+    hideMobileSelectionHint();
+    if (!keepText) {
+        currentSelectedText = '';
+    }
+    if (clearSelection) {
+        const selection = window.getSelection();
+        if (selection && typeof selection.removeAllRanges === 'function') {
+            selection.removeAllRanges();
+        }
+    }
+}
+
+function handleMobileSelectionUpdate(selectedText) {
+    if (!mobileChatTrigger || !isMobileSelectionModeActive) return;
+    if (selectedText.length >= MOBILE_MIN_SELECTION_LENGTH) {
+        currentSelectedText = selectedText;
+        mobileChatTrigger.classList.add('ready');
+        showMobileSelectionHint(MOBILE_SELECTION_READY, true);
+    } else {
+        mobileChatTrigger.classList.remove('ready');
+        if (selectedText.length === 0) {
+            showMobileSelectionHint(MOBILE_SELECTION_PROMPT, true);
+        }
+    }
+}
+
 // MODIFICADO: Se añade 'touchend' para mejor respuesta en móviles
 ['mouseup', 'touchend'].forEach(evt => {
     document.addEventListener(evt, (event) => {
-        if (drawer.contains(event.target) || wizard.contains(event.target)) return;
-        
-        const selection = window.getSelection();
-        const selectedText = selection.toString().trim();
+        if ((drawer && drawer.contains(event.target)) || (wizard && wizard.contains(event.target))) return;
 
-        if (selectedText.length > 5) {
-            currentSelectedText = selectedText;
-            // Lógica para el botón de escritorio
-            const range = selection.getRangeAt(0);
-            const rect = range.getBoundingClientRect();
-            highlighterButton.style.display = 'block';
-            highlighterButton.style.left = `${rect.left + window.scrollX + (rect.width / 2) - (highlighterButton.offsetWidth / 2)}px`;
-            highlighterButton.style.top = `${rect.top + window.scrollY - highlighterButton.offsetHeight - 5}px`;
-            // Lógica para el botón móvil
-            mobileChatTrigger.classList.add('active');
+        const selection = window.getSelection();
+        const selectedText = selection ? selection.toString().trim() : '';
+
+        if (isMobileViewport()) {
+            if (!isMobileSelectionModeActive) return;
+            handleMobileSelectionUpdate(selectedText);
+            return;
+        }
+
+        if (selectedText.length >= MOBILE_MIN_SELECTION_LENGTH) {
+            if (selection && selection.rangeCount > 0) {
+                currentSelectedText = selectedText;
+                const range = selection.getRangeAt(0);
+                const rect = range.getBoundingClientRect();
+                highlighterButton.style.display = 'block';
+                highlighterButton.style.left = `${rect.left + window.scrollX + (rect.width / 2) - (highlighterButton.offsetWidth / 2)}px`;
+                highlighterButton.style.top = `${rect.top + window.scrollY - highlighterButton.offsetHeight - 5}px`;
+            }
         } else {
             highlighterButton.style.display = 'none';
-            mobileChatTrigger.classList.remove('active');
+            currentSelectedText = '';
         }
     });
 });
 
+document.addEventListener('selectionchange', () => {
+    if (!isMobileViewport() || !isMobileSelectionModeActive) return;
+    const selection = window.getSelection();
+    const selectedText = selection ? selection.toString().trim() : '';
+    handleMobileSelectionUpdate(selectedText);
+});
+
+window.addEventListener('resize', () => {
+    if (!isMobileViewport() && isMobileSelectionModeActive) {
+        exitMobileSelectionMode({ clearSelection: false });
+    }
+});
+
 // Refactorizado para evitar duplicar código
 function openChatDrawer() {
+    if (!currentSelectedText) {
+        alert('Selecciona un fragmento de texto antes de conversar.');
+        return;
+    }
+    exitMobileSelectionMode({ clearSelection: true, keepText: true });
     if (!genAI) {
         alert("La funcionalidad de IA no está disponible. Por favor, configura una clave de API en el archivo main.js.");
         return;
@@ -167,15 +271,23 @@ function openChatDrawer() {
     drawer.setAttribute('aria-hidden', 'false');
     drawer.removeAttribute('inert');
     highlighterButton.style.display = 'none';
-    mobileChatTrigger.classList.remove('active'); // Desactivar al abrir
     startChatSession();
-    drawerCloseButton.focus();
+    if (drawerCloseButton) {
+        drawerCloseButton.focus();
+    }
 }
 
 highlighterButton.addEventListener('click', openChatDrawer);
 mobileChatTrigger.addEventListener('click', () => {
-    if (mobileChatTrigger.classList.contains('active')) {
+    if (!isMobileViewport()) return;
+    if (!isMobileSelectionModeActive) {
+        enterMobileSelectionMode();
+        return;
+    }
+    if (currentSelectedText && currentSelectedText.length >= MOBILE_MIN_SELECTION_LENGTH) {
         openChatDrawer();
+    } else {
+        showMobileSelectionHint('Selecciona un fragmento más extenso antes de confirmar.', true);
     }
 });
 
@@ -183,6 +295,8 @@ function closeDrawer() {
     drawer.setAttribute('aria-hidden', 'true');
     drawer.setAttribute('inert', '');
     chat = null;
+    highlighterButton.style.display = 'none';
+    exitMobileSelectionMode({ clearSelection: true });
 }
 drawerCloseButton.addEventListener('click', closeDrawer);
 drawer.addEventListener('click', (event) => {

@@ -77,19 +77,40 @@
         #mobile-chat-trigger {
             display: none; /* Oculto por defecto */
             position: fixed;
-            bottom: 20px;
-            right: 20px;
+            top: 12px;
+            left: 12px;
             padding: 10px 15px;
-            z-index: 999;
+            z-index: 1500;
             cursor: pointer;
-            opacity: 0.5; /* Estado inactivo */
-            pointer-events: none; /* No se puede hacer clic cuando está inactivo */
-            transition: opacity 0.2s;
+            opacity: 0.9;
+            transition: opacity 0.2s, border-color 0.2s, box-shadow 0.2s;
         }
 
-        #mobile-chat-trigger.active {
-            opacity: 1; /* Estado activo */
-            pointer-events: auto; /* Se puede hacer clic */
+        #mobile-chat-trigger.selection-mode {
+            opacity: 1;
+            box-shadow: 0 0 0 2px var(--border-color);
+        }
+
+        #mobile-chat-trigger.ready {
+            border-style: solid;
+        }
+
+        #mobile-selection-hint {
+            display: none;
+            position: fixed;
+            top: 60px;
+            left: 12px;
+            right: 12px;
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border-color);
+            background-color: var(--background-color);
+            color: var(--text-color);
+            z-index: 1400;
+            font-size: 0.95rem;
+        }
+
+        #mobile-selection-hint.visible {
+            display: block;
         }
 
         /* --- NUEVO: Media Query para lógica móvil --- */
@@ -99,6 +120,7 @@
             }
             #mobile-chat-trigger {
                 display: block; /* Mostrar el botón flotante en móviles */
+                pointer-events: auto;
             }
         }
 
@@ -208,7 +230,8 @@
 
     <!-- Elementos de la Interfaz Interactiva -->
     <button id="highlighter-button">Conversar</button>
-    <button id="mobile-chat-trigger">Conversar</button>
+    <button id="mobile-chat-trigger" aria-expanded="false">Conversar</button>
+    <div id="mobile-selection-hint" role="status" aria-live="polite"></div>
 
     <!-- CAJÓN DE CHAT -->
     <aside id="chat-drawer" class="drawer" aria-hidden="true" inert>
