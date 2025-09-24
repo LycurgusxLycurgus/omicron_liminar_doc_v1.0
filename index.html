@@ -79,7 +79,7 @@
             position: fixed;
             top: 12px;
             left: 12px;
-            padding: 10px 15px;
+            padding: 5px 10px;
             z-index: 1500;
             cursor: pointer;
             opacity: 0.9;
@@ -178,26 +178,56 @@
             display: none;
             align-items: center;
             justify-content: center;
-            z-index: 1000;
+            z-index: 2400;
         }
 
         .wizard-content {
             background-color: var(--background-color);
             border: 1px solid var(--border-color);
-            padding: 1rem;
+            padding: 1.5rem;
             width: 90%;
-            max-width: 500px;
-            text-align: center;
+            max-width: 520px;
+            text-align: left;
             position: relative;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
         }
 
-        #selected-text-container {
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 0.5rem;
+        .wizard-content h2 {
+            margin-top: 0;
+        }
+
+        #wizard-subtitle {
+            font-size: 1.05em;
+            margin: 0.25rem 0 1rem;
+        }
+
+        #wizard-instructions {
+            margin: 0 0 1.25rem 1rem;
+            padding-left: 1rem;
+            list-style-position: inside;
+        }
+
+        #wizard-instructions li {
             margin-bottom: 0.5rem;
-            font-style: italic;
-            max-height: 100px;
-            overflow-y: auto;
+        }
+
+        .wizard-actions {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .wizard-actions label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.95em;
+        }
+
+        .wizard-actions button {
+            padding: 5px 10px;
         }
 
         #chat-history {
@@ -237,9 +267,7 @@
     <aside id="chat-drawer" class="drawer" aria-hidden="true" inert>
         <div class="drawer-body">
             <button class="drawer-close-button" id="drawer-close">×</button>
-            <h4>Conversando sobre:</h4>
-            <div id="selected-text-container"></div>
-            <div id="chat-history"></div>
+            <div id="chat-history" role="log" aria-live="polite"></div>
             <form id="chat-form">
                 <textarea id="chat-input" placeholder="Haz una pregunta..." required></textarea>
                 <button type="submit">Enviar</button>
@@ -248,12 +276,15 @@
     </aside>
 
     <!-- WIZARD / TUTORIAL DE BIENVENIDA -->
-    <div class="wizard-overlay" id="wizard">
+    <div class="wizard-overlay" id="wizard" role="dialog" aria-modal="true" aria-labelledby="wizard-title" aria-hidden="true">
         <div class="wizard-content">
-            <h2>Bienvenido a Arqueidentidad: Omicron</h2>
-            <p style="font-size: 1.2em;">Esta es una página interactiva.</p>
-            <p><strong>Selecciona cualquier fragmento de texto</strong> para iniciar una conversación con una IA experta sobre ese concepto.</p>
-            <button id="wizard-close">Entendido</button>
+            <h2 id="wizard-title">Bienvenido</h2>
+            <p id="wizard-subtitle"></p>
+            <ol id="wizard-instructions"></ol>
+            <div class="wizard-actions">
+                <label for="wizard-dont-show"><input type="checkbox" id="wizard-dont-show"> No mostrar de nuevo</label>
+                <button id="wizard-close" type="button">Comenzar</button>
+            </div>
         </div>
     </div>
 

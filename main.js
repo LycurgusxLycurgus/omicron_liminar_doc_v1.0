@@ -22,7 +22,6 @@ const mobileSelectionHint = document.getElementById('mobile-selection-hint');
 // Cajón de Chat
 const drawer = document.getElementById('chat-drawer');
 const drawerCloseButton = document.getElementById('drawer-close');
-const selectedTextContainer = document.getElementById('selected-text-container');
 const chatHistoryContainer = document.getElementById('chat-history');
 const chatForm = document.getElementById('chat-form');
 const chatInput = document.getElementById('chat-input');
@@ -30,6 +29,10 @@ const chatInput = document.getElementById('chat-input');
 const themeToggle = document.getElementById('theme-toggle');
 const wizard = document.getElementById('wizard');
 const wizardCloseButton = document.getElementById('wizard-close');
+const wizardTitle = document.getElementById('wizard-title');
+const wizardSubtitle = document.getElementById('wizard-subtitle');
+const wizardInstructions = document.getElementById('wizard-instructions');
+const wizardDontShow = document.getElementById('wizard-dont-show');
 
 let currentSelectedText = '';
 let chat;
@@ -53,13 +56,26 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Lógica del Wizard
-    if (!localStorage.getItem('hasSeenWizard')) {
-        wizard.style.display = 'flex';
+    const shouldHideWizard = localStorage.getItem('hideWizard') === 'true';
+    if (!shouldHideWizard) {
+        openWizard();
     }
-    wizardCloseButton.addEventListener('click', () => {
-        wizard.style.display = 'none';
-
-        localStorage.setItem('hasSeenWizard', 'true');
+    if (wizardCloseButton) {
+        wizardCloseButton.addEventListener('click', () => {
+            closeWizard();
+        });
+    }
+    if (wizard) {
+        wizard.addEventListener('click', (event) => {
+            if (event.target === wizard) {
+                closeWizard();
+            }
+        });
+    }
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && wizard && wizard.style.display === 'flex') {
+            closeWizard();
+        }
     });
 
     // Carga de las instrucciones del sistema
@@ -140,6 +156,58 @@ function createElement(item) {
 
 function isMobileViewport() {
     return window.matchMedia('(max-width: 768px)').matches;
+}
+
+function openWizard() {
+    if (!wizard) return;
+    updateWizardContent();
+    if (wizardDontShow) {
+        wizardDontShow.checked = false;
+    }
+    wizard.style.display = 'flex';
+    wizard.setAttribute('aria-hidden', 'false');
+    if (wizardCloseButton) {
+        wizardCloseButton.focus();
+    }
+}
+
+function closeWizard() {
+    if (!wizard) return;
+    wizard.style.display = 'none';
+    wizard.setAttribute('aria-hidden', 'true');
+    if (wizardDontShow && wizardDontShow.checked) {
+        localStorage.setItem('hideWizard', 'true');
+    }
+}
+
+function updateWizardContent() {
+    if (!wizardTitle || !wizardSubtitle || !wizardInstructions) return;
+    const mobile = isMobileViewport();
+    const title = mobile ? 'Conversar desde tu dispositivo móvil' : 'Conversar desde tu ordenador';
+    const subtitle = mobile
+        ? 'Sigue estos pasos rápidos para seleccionar un fragmento y abrir el chat.'
+        : 'Descubre cómo iniciar una conversación contextual en tres pasos.';
+    const steps = mobile
+        ? [
+            'Pulsa el botón «Conversar» en la esquina superior izquierda para activar el modo de selección.',
+            'Selecciona un fragmento de al menos unas pocas palabras del documento.',
+            'Pulsa de nuevo «Conversar» para confirmar y abrir el chat contextual.',
+            'Escribe tus preguntas en la parte inferior del cajón y envíalas.'
+        ]
+        : [
+            'Selecciona un fragmento relevante del documento (unas pocas palabras o más).',
+            'Cuando aparezca el botón flotante «Conversar», haz clic en él para abrir el chat.',
+            'Formula tus preguntas en el campo de texto del cajón y envíalas.'
+        ];
+
+    wizardTitle.textContent = title;
+    wizardSubtitle.textContent = subtitle;
+    wizardInstructions.innerHTML = '';
+    steps.forEach((step) => {
+        const li = document.createElement('li');
+        li.textContent = step;
+        wizardInstructions.appendChild(li);
+    });
 }
 
 function showMobileSelectionHint(message, persistent = false) {
@@ -253,6 +321,9 @@ window.addEventListener('resize', () => {
     if (!isMobileViewport() && isMobileSelectionModeActive) {
         exitMobileSelectionMode({ clearSelection: false });
     }
+    if (wizard && wizard.style.display === 'flex') {
+        updateWizardContent();
+    }
 });
 
 // Refactorizado para evitar duplicar código
@@ -266,7 +337,6 @@ function openChatDrawer() {
         alert("La funcionalidad de IA no está disponible. Por favor, configura una clave de API en el archivo main.js.");
         return;
     }
-    selectedTextContainer.textContent = `"${currentSelectedText}"`;
     chatHistoryContainer.innerHTML = '';
     drawer.setAttribute('aria-hidden', 'false');
     drawer.removeAttribute('inert');
@@ -352,7 +422,7 @@ function addMessageToHistory(text, role) {
 function startChatSession() {
     const instructionTemplate = systemPrompt || `Eres un asistente experto en Arqueidentidad: Omicron. El usuario ha seleccionado el siguiente fragmento: "{{fragment}}". Inicia la conversación preguntando qué desea explorar.`;
     const systemInstruction = instructionTemplate.replace('{{fragment}}', currentSelectedText);
-    const firstMessage = `Has seleccionado el fragmento: "${currentSelectedText}". ¿Qué te gustaría explorar o preguntar sobre esta idea?`;
+    const firstMessage = `Trabajaremos con este fragmento: "${currentSelectedText}". ¿Qué te gustaría explorar o preguntar sobre esta idea?`;
 
     chat = model.startChat({
         history: [
