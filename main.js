@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
 
 // --- CONFIGURACIÓN ---
 const API_KEY = "AIzaSyDY6kyelIz1MX8W8xChiGKK89Yqh0cwWfM";
-const MODEL_NAME = "models/gemini-2.5-flash-lite";
+const MODEL_NAME = "models/gemini-flash-lite-latest";
 
 // --- INICIALIZACIÓN DE LA API ---
 let genAI;
