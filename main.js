@@ -407,16 +407,27 @@ chatForm.addEventListener('submit', async (event) => {
 });
 
 function addMessageToHistory(text, role) {
-    const el = document.createElement('div');
-    el.className = role === 'user' ? 'user-message' : 'model-message';
+    const wrapper = document.createElement('div');
+    const messageClass = role === 'user' ? 'user-message' : 'model-message';
+    wrapper.className = `chat-message ${messageClass}`;
+
+    const label = document.createElement('span');
+    label.className = 'message-label';
+    label.textContent = role === 'user' ? 'Tú' : 'Omicron IA';
+
+    const body = document.createElement('div');
+    body.className = 'message-body';
     if (role === 'model' && window.marked) {
-        el.innerHTML = marked.parse(text);
+        body.innerHTML = marked.parse(text);
     } else {
-        el.textContent = text;
+        body.textContent = text;
     }
-    chatHistoryContainer.appendChild(el);
+
+    wrapper.appendChild(label);
+    wrapper.appendChild(body);
+    chatHistoryContainer.appendChild(wrapper);
     chatHistoryContainer.scrollTop = chatHistoryContainer.scrollHeight;
-    return el;
+    return body;
 }
 
 function startChatSession() {
