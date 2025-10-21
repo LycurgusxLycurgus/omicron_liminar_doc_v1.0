@@ -35,6 +35,18 @@
             transition: background-color 0.2s, color 0.2s;
         }
 
+        main#content-container {
+            width: 100%;
+            max-width: 960px;
+            margin: 0 auto;
+        }
+
+        @media (min-width: 1440px) {
+            main#content-container {
+                max-width: 1100px;
+            }
+        }
+
         h1, h2, h3, h4, p, blockquote, ul, li {
             margin-block-start: 1em;
             margin-block-end: 1em;
