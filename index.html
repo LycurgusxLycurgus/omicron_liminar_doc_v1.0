@@ -35,13 +35,25 @@
             transition: background-color 0.2s, color 0.2s;
         }
 
+        main#content-container {
+            width: 100%;
+            max-width: 720px;
+            margin: 0 auto;
+        }
+
+        @media (min-width: 1440px) {
+            main#content-container {
+                max-width: 720px;
+            }
+        }
+
         h1, h2, h3, h4, p, blockquote, ul, li {
             margin-block-start: 1em;
             margin-block-end: 1em;
         }
 
         p, li, blockquote {
-            font-size: 1.1em;
+            font-size: 1.3em;
             line-height: 1.6;
         }
 
